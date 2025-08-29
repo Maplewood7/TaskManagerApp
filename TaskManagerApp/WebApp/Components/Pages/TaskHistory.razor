@@ -1,0 +1,55 @@
+﻿@page "/tasks/history"
+@inject TaskService TaskService
+@inject UserStateService UserStateService
+
+<h3>Task History</h3>
+
+@if (!string.IsNullOrEmpty(ErrorMessage))
+{
+    <div class="alert alert-danger">@ErrorMessage</div>
+}
+else if (tasks == null || !tasks.Any())
+{
+    <p>No completed tasks found.</p>
+}
+else
+{
+    <div class="row">
+        @foreach (var task in tasks)
+        {
+            <div class="col-md-4 mb-3">
+                <div class="card shadow-sm border-success">
+                    <div class="card-body">
+                        <h5 class="card-title">@task.Title</h5>
+                        <p class="card-text">@task.Description</p>
+                        <p class="text-muted small">Completed!</p>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<TaskItem> tasks = new();
+    private string ErrorMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var userId = UserStateService.UserId;
+            if (string.IsNullOrEmpty(userId))
+            {
+                ErrorMessage = "You must be logged in to view your task history.";
+                return;
+            }
+
+            tasks = await TaskService.GetCompletedTasks(userId);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Failed to load completed tasks: {ex.Message}";
+        }
+    }
+}

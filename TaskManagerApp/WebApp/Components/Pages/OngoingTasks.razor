@@ -1,0 +1,79 @@
+﻿@page "/tasks/ongoing"
+@rendermode InteractiveServer
+@inject TaskService TaskService
+@inject UserStateService UserStateService
+
+<h3>Ongoing Tasks</h3>
+
+@if (!string.IsNullOrEmpty(ErrorMessage))
+{
+    <div class="alert alert-danger">@ErrorMessage</div>
+}
+
+@if (tasks == null || !tasks.Any())
+{
+    <p>No ongoing tasks.</p>
+}
+else
+{
+    <div class="row row-cols-1 row-cols-md-2 g-3">
+        @foreach (var task in tasks)
+        {
+            <div class="col">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body d-flex flex-column justify-content-between">
+                        <div>
+                            <h5 class="card-title">@task.Title</h5>
+                            <p class="card-text">@task.Description</p>
+                            <p class="card-subtitle text-muted" style="font-size: 0.85rem;">
+                                Created on: @task.CreatedAt.ToString("dd MMM yyyy")
+                            </p>
+                        </div>
+                        <button class="btn btn-success mt-3" @onclick="() => CompleteTask(task)">
+                            Complete Task
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<TaskItem> tasks = new();
+    private string ErrorMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var userId = UserStateService.UserId;
+            if (string.IsNullOrEmpty(userId))
+            {
+                ErrorMessage = "You must be logged in to see your tasks.";
+                return;
+            }
+
+            tasks = await TaskService.GetOngoingTasks(userId);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Failed to load tasks: {ex.Message}";
+        }
+    }
+
+    private async Task CompleteTask(TaskItem task)
+    {
+        try
+        {
+            task.IsCompleted = true;
+            await TaskService.CompleteTask(task);
+            tasks.Remove(task);
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Failed to complete task: {ex.Message}";
+        }
+    }
+}

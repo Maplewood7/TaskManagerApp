@@ -1,0 +1,30 @@
+﻿@page "/"
+@rendermode InteractiveServer
+@inject UserStateService UserStateService
+@inject NavigationManager NavManager
+
+<PageTitle>Task Manager</PageTitle>
+
+<h1>Welcome to Task Manager!</h1>
+
+<p>Your first step towards a more organized and productive life starts here.</p>
+
+@if (UserStateService.GetUser() != null)
+{
+    <button class="btn btn-danger" @onclick="Logout">Logout</button>
+}
+else
+{
+    <p>
+        <NavLink href="/login">Login</NavLink> |
+        <NavLink href="/register">Register</NavLink>
+    </p>
+}
+
+@code {
+    private void Logout()
+    {
+        UserStateService.ClearUser();
+        NavManager.NavigateTo("/");
+    }
+}

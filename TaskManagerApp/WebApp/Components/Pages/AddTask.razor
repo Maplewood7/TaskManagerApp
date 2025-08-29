@@ -1,0 +1,86 @@
+﻿@page "/tasks/add"
+@rendermode InteractiveServer
+@inject TaskService TaskService
+@inject NavigationManager NavManager
+@inject UserStateService UserStateService
+
+<h3>Add a Task</h3>
+
+<EditForm Model="@taskModel" OnValidSubmit="AddTaskAsync" FormName="AddTaskForm">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="form-group mb-3">
+        <label>Title:</label>
+        <InputText @bind-Value="taskModel.Title" class="form-control" />
+    </div>
+
+    <div class="form-group mb-3">
+        <label>Description:</label>
+        <InputTextArea @bind-Value="taskModel.Description" class="form-control" />
+    </div>
+
+    <button type="submit" class="btn btn-primary" disabled="@isSaving">
+        @if (isSaving)
+        {
+            <span class="spinner-border spinner-border-sm me-2"></span>
+        }
+        Add Task
+    </button>
+</EditForm>
+
+@if (!string.IsNullOrEmpty(ErrorMessage))
+{
+    <div class="alert alert-danger mt-3">@ErrorMessage</div>
+}
+
+@code {
+    private TaskModel taskModel = new();
+    private bool isSaving = false;
+    private string ErrorMessage = "";
+
+    private async Task AddTaskAsync()
+    {
+        isSaving = true;
+        ErrorMessage = "";
+
+        try
+        {
+            var userId = UserStateService.UserId;
+
+            if (string.IsNullOrEmpty(userId))
+            {
+                ErrorMessage = "You must be logged in to add a task.";
+                return;
+            }
+
+            var task = new TaskItem
+                {
+                    Title = taskModel.Title,
+                    Description = taskModel.Description,
+                    UserId = userId,
+                    IsCompleted = false
+                };
+
+            await TaskService.AddTask(task);
+
+            taskModel = new TaskModel();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    public class TaskModel
+    {
+        [Required(ErrorMessage = "Title is required")]
+        public string Title { get; set; } = "";
+
+        public string Description { get; set; } = "";
+    }
+}
