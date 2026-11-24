@@ -1,5 +1,4 @@
 ﻿@page "/"
-@rendermode InteractiveServer
 @inject UserStateService UserStateService
 @inject NavigationManager NavManager
 
@@ -11,12 +10,15 @@
 
 @if (UserStateService.GetUser() != null)
 {
-    <button class="btn btn-danger" @onclick="Logout">Logout</button>
+    <form method="post" action="/account/logout">
+        <AntiforgeryToken />
+        <button type="submit" class="btn btn-danger">Logout</button>
+    </form>
 }
 else
 {
     <p>
-        <NavLink href="/login">Login</NavLink> |
+        <button type="button" class="btn btn-link p-0" @onclick="OpenLogin">Login</button> |
         <NavLink href="/register">Register</NavLink>
     </p>
 }
@@ -27,4 +29,7 @@ else
         UserStateService.ClearUser();
         NavManager.NavigateTo("/");
     }
+
+    private void OpenLogin() =>
+        NavManager.NavigateTo("/login", forceLoad: true);
 }

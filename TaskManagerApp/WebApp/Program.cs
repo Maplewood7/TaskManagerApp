@@ -8,6 +8,7 @@ using Infrastructure.Repositories;
 using Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.SqlServer;
+using Microsoft.AspNetCore.Antiforgery;
 
 
 namespace WebApp
@@ -39,10 +40,14 @@ namespace WebApp
 
             builder.Services.AddScoped<ITaskRepo, TaskRepo>();
             builder.Services.AddScoped<TaskService>();
+            builder.Services.AddScoped<ITaskTagRepo, TaskTagRepo>();
+            builder.Services.AddScoped<TaskTagService>();
 
             builder.Services.AddScoped<IUserService, UserService>();
             builder.Services.AddScoped<IAuthService, AuthService>();
-            builder.Services.AddSingleton<UserStateService>();
+            builder.Services.AddScoped<UserStateService>();
+
+            builder.Services.AddCascadingAuthenticationState();
 
             var app = builder.Build();
 
@@ -50,7 +55,7 @@ namespace WebApp
             {
                 var services = scope.ServiceProvider;
                 var context = services.GetRequiredService<ApplicationDBContext>();
-                context.Database.EnsureCreated();
+                context.Database.Migrate();
             }
 
             // Configure the HTTP request pipeline.
@@ -62,16 +67,69 @@ namespace WebApp
             }
 
             app.UseHttpsRedirection();
-
             app.UseStaticFiles();
             app.UseRouting();
-			app.UseAntiforgery();
+            app.UseAuthentication();
+            app.UseAuthorization();
+            app.UseAntiforgery();
 
-			app.UseAuthentication();
-			app.UseAuthorization();
+            app.MapPost("/account/login", async (
+                HttpContext context,
+                UserManager<IdentityUser> userManager,
+                SignInManager<IdentityUser> signInManager) =>
+            {
+                var antiforgery = context.RequestServices.GetRequiredService<IAntiforgery>();
 
+                try
+                {
+                    await antiforgery.ValidateRequestAsync(context);
+                }
+                catch (AntiforgeryValidationException)
+                {
+                    return Results.BadRequest("Invalid antiforgery token.");
+                }
 
-			app.MapRazorComponents<App>()
+                var form = await context.Request.ReadFormAsync();
+                var email = form["Email"].ToString();
+                var password = form["Password"].ToString();
+                var user = await userManager.FindByEmailAsync(email);
+
+                if (user is null)
+                {
+                    return Results.Redirect("/login?error=1");
+                }
+
+                var result = await signInManager.PasswordSignInAsync(
+                    user,
+                    password,
+                    isPersistent: true,
+                    lockoutOnFailure: false);
+
+                return result.Succeeded
+                    ? Results.Redirect("/")
+                    : Results.Redirect("/login?error=1");
+            });
+
+            app.MapPost("/account/logout", async (
+                HttpContext context,
+                SignInManager<IdentityUser> signInManager) =>
+            {
+                var antiforgery = context.RequestServices.GetRequiredService<IAntiforgery>();
+
+                try
+                {
+                    await antiforgery.ValidateRequestAsync(context);
+                }
+                catch (AntiforgeryValidationException)
+                {
+                    return Results.BadRequest("Invalid antiforgery token.");
+                }
+
+                await signInManager.SignOutAsync();
+                return Results.Redirect("/");
+            });
+
+            app.MapRazorComponents<App>()
                 .AddInteractiveServerRenderMode();
 
             app.Run();

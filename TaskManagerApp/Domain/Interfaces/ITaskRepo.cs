@@ -12,6 +12,6 @@ namespace Domain.Interfaces
         Task<List<TaskItem>> GetTasksForUserAsync(string userId, bool? isCompleted = null);
         Task AddAsync(TaskItem item);
         Task UpdateAsync(TaskItem item);
-        Task DeleteAsync(int taskId);
+        Task DeleteAsync(int taskId, string userId);
     }
 }

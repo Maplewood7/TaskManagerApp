@@ -1,60 +1,110 @@
 ﻿@page "/tasks/ongoing"
-@rendermode InteractiveServer
 @inject TaskService TaskService
+@inject TaskTagService TaskTagService
 @inject UserStateService UserStateService
 
 <h3>Ongoing Tasks</h3>
 
-@if (!string.IsNullOrEmpty(ErrorMessage))
+@if (!string.IsNullOrWhiteSpace(ErrorMessage))
 {
     <div class="alert alert-danger">@ErrorMessage</div>
 }
-
-@if (tasks == null || !tasks.Any())
-{
-    <p>No ongoing tasks.</p>
-}
 else
 {
-    <div class="row row-cols-1 row-cols-md-2 g-3">
-        @foreach (var task in tasks)
+    <section class="mb-4">
+        <h4>Progress by tag</h4>
+
+        @foreach (var progress in GetProgressGroups())
         {
-            <div class="col">
-                <div class="card h-100 shadow-sm">
-                    <div class="card-body d-flex flex-column justify-content-between">
-                        <div>
-                            <h5 class="card-title">@task.Title</h5>
-                            <p class="card-text">@task.Description</p>
-                            <p class="card-subtitle text-muted" style="font-size: 0.85rem;">
-                                Created on: @task.CreatedAt.ToString("dd MMM yyyy")
-                            </p>
-                        </div>
-                        <button class="btn btn-success mt-3" @onclick="() => CompleteTask(task)">
-                            Complete Task
-                        </button>
+            <div class="mb-3">
+                <div class="d-flex justify-content-between">
+                    <strong>@progress.Name</strong>
+                    <span>
+                        @progress.CompletedCount / @progress.TotalCount completed
+                        (@progress.Percentage%)
+                    </span>
+                </div>
+                <div class="progress" aria-label="@($"{progress.Name} progress")">
+                    <div class="progress-bar @(progress.IsUntagged ? "bg-secondary" : "bg-success")"
+                         role="progressbar"
+                         style="@($"width: {progress.Percentage}%")"
+                         aria-valuenow="@progress.Percentage"
+                         aria-valuemin="0"
+                         aria-valuemax="100">
                     </div>
                 </div>
             </div>
         }
-    </div>
+    </section>
+
+    @if (tasks.Count == 0)
+    {
+        <p>No ongoing tasks.</p>
+    }
+    else
+    {
+        <div class="row row-cols-1 row-cols-md-2 g-3">
+            @foreach (var task in tasks)
+            {
+                <div class="col">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body d-flex flex-column justify-content-between">
+                            <div>
+                                <h5 class="card-title">@task.Title</h5>
+
+                                @if (task.TaskTagId is int taskTagId)
+                                {
+                                    var tagName = tags.FirstOrDefault(tag => tag.Id == taskTagId)?.Name;
+                                    @if (tagName is not null)
+                                    {
+                                        <span class="badge bg-secondary">@tagName</span>
+                                    }
+                                }
+
+                                @if (!string.IsNullOrWhiteSpace(task.Description))
+                                {
+                                    <p class="card-text mt-2">@task.Description</p>
+                                }
+                            </div>
+                            <div class="d-flex gap-2 mt-3">
+                                <button class="btn btn-success"
+                                        @onclick="() => CompleteTaskAsync(task)">
+                                    Complete
+                                </button>
+                                <button class="btn btn-outline-danger"
+                                        @onclick="() => RemoveTaskAsync(task)">
+                                    Remove
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
 }
 
 @code {
     private List<TaskItem> tasks = new();
-    private string ErrorMessage = "";
+    private List<TaskItem> allTasks = new();
+    private List<TaskTag> tags = new();
+    private string ErrorMessage = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
             var userId = UserStateService.UserId;
-            if (string.IsNullOrEmpty(userId))
+
+            if (string.IsNullOrWhiteSpace(userId))
             {
                 ErrorMessage = "You must be logged in to see your tasks.";
                 return;
             }
 
-            tasks = await TaskService.GetOngoingTasks(userId);
+            tags = await TaskTagService.GetOrCreateDefaultsAsync(userId);
+            allTasks = await TaskService.GetAllTasks(userId);
+            tasks = allTasks.Where(task => !task.IsCompleted).ToList();
         }
         catch (Exception ex)
         {
@@ -62,18 +112,68 @@ else
         }
     }
 
-    private async Task CompleteTask(TaskItem task)
+    private async Task CompleteTaskAsync(TaskItem task)
     {
         try
         {
-            task.IsCompleted = true;
             await TaskService.CompleteTask(task);
             tasks.Remove(task);
-            StateHasChanged();
         }
         catch (Exception ex)
         {
             ErrorMessage = $"Failed to complete task: {ex.Message}";
         }
+    }
+
+    private async Task RemoveTaskAsync(TaskItem task)
+    {
+        try
+        {
+            var userId = UserStateService.UserId;
+
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                ErrorMessage = "You must be logged in to remove a task.";
+                return;
+            }
+
+            await TaskService.DeleteTaskAsync(task.Id, userId);
+            tasks.Remove(task);
+            allTasks.Remove(task);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Failed to remove task: {ex.Message}";
+        }
+    }
+
+    private IEnumerable<(string Name, int CompletedCount, int TotalCount, int Percentage, bool IsUntagged)> GetProgressGroups()
+    {
+        var groups = new List<(string Name, int CompletedCount, int TotalCount, int Percentage, bool IsUntagged)>();
+
+        foreach (var tag in tags)
+        {
+            var tagTasks = allTasks.Where(task => task.TaskTagId == tag.Id).ToList();
+            var completedCount = tagTasks.Count(task => task.IsCompleted);
+            var percentage = tagTasks.Count == 0
+                ? 0
+                : (int)Math.Round(completedCount * 100.0 / tagTasks.Count);
+
+            groups.Add((tag.Name, completedCount, tagTasks.Count, percentage, false));
+        }
+
+        var untaggedTasks = allTasks.Where(task => task.TaskTagId is null).ToList();
+
+        if (untaggedTasks.Count > 0)
+        {
+            var completedCount = untaggedTasks.Count(task => task.IsCompleted);
+            var percentage = (int)Math.Round(completedCount * 100.0 / untaggedTasks.Count);
+
+            groups.Add(("Untagged existing tasks", completedCount, untaggedTasks.Count, percentage, true));
+        }
+
+        return groups
+            .OrderByDescending(group => group.Percentage)
+            .ThenBy(group => group.Name);
     }
 }

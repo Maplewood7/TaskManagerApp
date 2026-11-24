@@ -27,5 +27,11 @@ namespace Application.Services
             task.IsCompleted = true;
             await _taskRepo.UpdateAsync(task);
         }
+
+        public Task<List<TaskItem>> GetAllTasks(string userId) =>
+            _taskRepo.GetTasksForUserAsync(userId);
+
+        public Task DeleteTaskAsync(int taskId, string userId) =>
+            _taskRepo.DeleteAsync(taskId, userId);
     }
 }

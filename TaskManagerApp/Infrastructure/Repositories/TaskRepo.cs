@@ -32,14 +32,18 @@ namespace Infrastructure.Repositories
             await _db.SaveChangesAsync();
         }
 
-        public async Task DeleteAsync(int taskId)
+        public async Task DeleteAsync(int taskId, string userId)
         {
-            var task = await _db.Tasks.FindAsync(taskId);
-            if (task != null)
+            var task = await _db.Tasks.FirstOrDefaultAsync(
+                item => item.Id == taskId && item.UserId == userId);
+
+            if (task is null)
             {
-                _db.Tasks.Remove(task);
-                await _db.SaveChangesAsync();
+                return;
             }
+
+            _db.Tasks.Remove(task);
+            await _db.SaveChangesAsync();
         }
     }
 }

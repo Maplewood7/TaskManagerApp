@@ -12,8 +12,27 @@ namespace Infrastructure.Data
 {
     public class ApplicationDBContext : IdentityDbContext<IdentityUser>
     {
-        public ApplicationDBContext(DbContextOptions<ApplicationDBContext> options) : base(options) { }
+        public ApplicationDBContext(DbContextOptions<ApplicationDBContext> options)
+            : base(options)
+        {
+        }
 
-        public DbSet<TaskItem> Tasks { get; set; }
+        public DbSet<TaskItem> Tasks { get; set; } = null!;
+        public DbSet<TaskTag> TaskTags { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder builder)
+        {
+            base.OnModelCreating(builder);
+
+            builder.Entity<TaskTag>()
+                .HasIndex(tag => new { tag.UserId, tag.Name })
+                .IsUnique();
+
+            builder.Entity<TaskItem>()
+                .HasOne(task => task.Tag)
+                .WithMany(tag => tag.Tasks)
+                .HasForeignKey(task => task.TaskTagId)
+                .OnDelete(DeleteBehavior.SetNull);
+        }
     }
 }

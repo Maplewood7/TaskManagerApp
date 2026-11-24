@@ -1,6 +1,27 @@
-﻿<Router AppAssembly="typeof(Program).Assembly">
+﻿@using System.Security.Claims
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject UserStateService UserStateService
+
+<Router AppAssembly="typeof(Program).Assembly">
     <Found Context="routeData">
         <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
         <FocusOnNavigate RouteData="routeData" Selector="h1" />
     </Found>
 </Router>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authenticationState.User;
+        var userId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            UserStateService.ClearUser();
+            return;
+        }
+
+        UserStateService.SetUser(userId, user.Identity?.Name ?? string.Empty);
+    }
+}

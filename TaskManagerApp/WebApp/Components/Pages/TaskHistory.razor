@@ -4,18 +4,18 @@
 
 <h3>Task History</h3>
 
-@if (!string.IsNullOrEmpty(ErrorMessage))
+@if (!string.IsNullOrWhiteSpace(_errorMessage))
 {
-    <div class="alert alert-danger">@ErrorMessage</div>
+    <div class="alert alert-danger">@_errorMessage</div>
 }
-else if (tasks == null || !tasks.Any())
+else if (_tasks.Count == 0)
 {
     <p>No completed tasks found.</p>
 }
 else
 {
     <div class="row">
-        @foreach (var task in tasks)
+        @foreach (var task in _tasks)
         {
             <div class="col-md-4 mb-3">
                 <div class="card shadow-sm border-success">
@@ -31,25 +31,26 @@ else
 }
 
 @code {
-    private List<TaskItem> tasks = new();
-    private string ErrorMessage = "";
+    private List<TaskItem> _tasks = new();
+    private string? _errorMessage;
 
     protected override async Task OnInitializedAsync()
     {
+        var userId = UserStateService.UserId;
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            _errorMessage = "You must be logged in to view your task history.";
+            return;
+        }
+
         try
         {
-            var userId = UserStateService.UserId;
-            if (string.IsNullOrEmpty(userId))
-            {
-                ErrorMessage = "You must be logged in to view your task history.";
-                return;
-            }
-
-            tasks = await TaskService.GetCompletedTasks(userId);
+            _tasks = await TaskService.GetCompletedTasks(userId);
         }
-        catch (Exception ex)
+        catch (Exception exception)
         {
-            ErrorMessage = $"Failed to load completed tasks: {ex.Message}";
+            _errorMessage = $"Failed to load completed tasks: {exception.Message}";
         }
     }
 }

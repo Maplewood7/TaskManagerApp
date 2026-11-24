@@ -1,10 +1,46 @@
 ﻿@page "/tasks/add"
-@rendermode InteractiveServer
 @inject TaskService TaskService
-@inject NavigationManager NavManager
+@inject TaskTagService TaskTagService
 @inject UserStateService UserStateService
 
 <h3>Add a Task</h3>
+
+@if (!string.IsNullOrWhiteSpace(ErrorMessage))
+{
+    <div class="alert alert-danger mt-3">@ErrorMessage</div>
+}
+
+<section class="card shadow-sm mb-4">
+    <div class="card-body">
+        <h4>Your tags</h4>
+
+        @if (tags.Count == 0)
+        {
+            <p>No tags loaded yet.</p>
+        }
+        else
+        {
+            <div class="d-flex flex-wrap gap-2 mb-3">
+                @foreach (var tag in tags)
+                {
+                    <span class="badge bg-secondary">@tag.Name</span>
+                }
+            </div>
+        }
+
+        <div class="input-group">
+            <InputText @bind-Value="newTagName"
+                       class="form-control"
+                       placeholder="New tag name" />
+            <button type="button"
+                    class="btn btn-outline-primary"
+                    disabled="@isCreatingTag"
+                    @onclick="CreateTagAsync">
+                @(isCreatingTag ? "Adding..." : "Add tag")
+            </button>
+        </div>
+    </div>
+</section>
 
 <EditForm Model="@taskModel" OnValidSubmit="AddTaskAsync" FormName="AddTaskForm">
     <DataAnnotationsValidator />
@@ -13,6 +49,25 @@
     <div class="form-group mb-3">
         <label>Title:</label>
         <InputText @bind-Value="taskModel.Title" class="form-control" />
+    </div>
+
+    <div class="form-group mb-3">
+        <label>Tag:</label>
+        <InputSelect @bind-Value="taskModel.TaskTagId" class="form-select">
+            <option value="">Choose a tag</option>
+            @foreach (var tag in tags)
+            {
+                <option value="@tag.Id">@tag.Name</option>
+            }
+        </InputSelect>
+        <ValidationMessage For="@(() => taskModel.TaskTagId)" />
+
+        @if (SelectedTagName is not null)
+        {
+            <div class="mt-2">
+                <span class="badge bg-secondary">@SelectedTagName</span>
+            </div>
+        }
     </div>
 
     <div class="form-group mb-3">
@@ -29,42 +84,103 @@
     </button>
 </EditForm>
 
-@if (!string.IsNullOrEmpty(ErrorMessage))
-{
-    <div class="alert alert-danger mt-3">@ErrorMessage</div>
-}
-
 @code {
     private TaskModel taskModel = new();
-    private bool isSaving = false;
-    private string ErrorMessage = "";
+    private List<TaskTag> tags = new();
+    private string newTagName = string.Empty;
+    private string ErrorMessage = string.Empty;
+    private bool isSaving;
+    private bool isCreatingTag;
 
-    private async Task AddTaskAsync()
+    protected override async Task OnInitializedAsync()
     {
-        isSaving = true;
-        ErrorMessage = "";
-
         try
         {
             var userId = UserStateService.UserId;
 
-            if (string.IsNullOrEmpty(userId))
+            if (string.IsNullOrWhiteSpace(userId))
             {
                 ErrorMessage = "You must be logged in to add a task.";
                 return;
             }
 
+            tags = await TaskTagService.GetOrCreateDefaultsAsync(userId);
+            taskModel.TaskTagId = tags
+                .First(tag => string.Equals(
+                    tag.Name,
+                    "Work",
+                    StringComparison.OrdinalIgnoreCase))
+                .Id;
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
+
+    private async Task CreateTagAsync()
+    {
+        ErrorMessage = string.Empty;
+        isCreatingTag = true;
+
+        try
+        {
+            var userId = UserStateService.UserId;
+
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                ErrorMessage = "You must be logged in to create a tag.";
+                return;
+            }
+
+            var tag = await TaskTagService.CreateAsync(userId, newTagName);
+            tags.Add(tag);
+            tags = tags.OrderBy(item => item.Name).ToList();
+            taskModel.TaskTagId = tag.Id;
+            newTagName = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+        finally
+        {
+            isCreatingTag = false;
+        }
+    }
+
+    private async Task AddTaskAsync()
+    {
+        ErrorMessage = string.Empty;
+        isSaving = true;
+
+        try
+        {
+            var userId = UserStateService.UserId;
+
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                ErrorMessage = "You must be logged in to add a task.";
+                return;
+            }
+
+            if (taskModel.TaskTagId is not int tagId ||
+                !tags.Any(tag => tag.Id == tagId))
+            {
+                ErrorMessage = "Choose one of your tags for this task.";
+                return;
+            }
+
             var task = new TaskItem
-                {
-                    Title = taskModel.Title,
-                    Description = taskModel.Description,
-                    UserId = userId,
-                    IsCompleted = false
-                };
+            {
+                Title = taskModel.Title,
+                Description = taskModel.Description,
+                UserId = userId,
+                TaskTagId = tagId
+            };
 
             await TaskService.AddTask(task);
-
-            taskModel = new TaskModel();
+            taskModel = new TaskModel { TaskTagId = tagId };
         }
         catch (Exception ex)
         {
@@ -76,11 +192,17 @@
         }
     }
 
+    private string? SelectedTagName =>
+        tags.FirstOrDefault(tag => tag.Id == taskModel.TaskTagId)?.Name;
+
     public class TaskModel
     {
         [Required(ErrorMessage = "Title is required")]
-        public string Title { get; set; } = "";
+        public string Title { get; set; } = string.Empty;
 
-        public string Description { get; set; } = "";
+        public string? Description { get; set; }
+
+        [Required(ErrorMessage = "Choose a tag")]
+        public int? TaskTagId { get; set; }
     }
 }
