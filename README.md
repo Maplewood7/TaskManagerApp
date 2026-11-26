@@ -21,7 +21,7 @@ A Blazor task manager for organizing tasks by tags, tracking progress, and revie
 
 ## Project structure
 
-The solution is in the **TaskManagerApp/** directory:
+The solution is structured using **Clean Architecture** inside the **TaskManagerApp/** directory:
 
 - **WebApp/** — Blazor UI, routing, authentication configuration, and application startup.
 - **App/** — Application services for tasks, tags, users, and authentication.
