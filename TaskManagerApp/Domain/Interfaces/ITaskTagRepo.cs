@@ -6,5 +6,7 @@ namespace Domain.Interfaces
     {
         Task<List<TaskTag>> GetForUserAsync(string userId);
         Task AddAsync(TaskTag tag);
+        Task UpdateAsync(TaskTag tag);
+        Task DeleteAsync(TaskTag tag);
     }
 }

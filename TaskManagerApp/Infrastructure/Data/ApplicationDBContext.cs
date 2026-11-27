@@ -28,6 +28,10 @@ namespace Infrastructure.Data
                 .HasIndex(tag => new { tag.UserId, tag.Name })
                 .IsUnique();
 
+            builder.Entity<TaskTag>()
+                .Property(tag => tag.Color)
+                .HasDefaultValue("#6258E8");
+
             builder.Entity<TaskItem>()
                 .HasOne(task => task.Tag)
                 .WithMany(tag => tag.Tasks)

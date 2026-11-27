@@ -1,0 +1,185 @@
+@page "/tags/manage"
+@inject TaskTagService TaskTagService
+@inject UserStateService UserStateService
+
+<h3>Manage Tags</h3>
+<p>Edit tag names and colors, or delete tags. Deleting a tag keeps its tasks and leaves them untagged.</p>
+
+@if (!string.IsNullOrWhiteSpace(ErrorMessage))
+{
+    <div class="alert alert-danger">@ErrorMessage</div>
+}
+
+@if (tags.Count == 0)
+{
+    <p>No tags found.</p>
+}
+else
+{
+    <div class="d-flex flex-column gap-3 manage-tags-grid">
+        @foreach (var tag in tags)
+        {
+            <section class="card shadow-sm" @key="tag.Id">
+                <div class="card-body">
+                    @if (editingTagId == tag.Id)
+                    {
+                        <div class="row g-3 align-items-end">
+                            <div class="col-md-6">
+                                <label class="form-label" for="tag-name-@tag.Id">Name</label>
+                                <InputText id="@($"tag-name-{tag.Id}")"
+                                           @bind-Value="editedName"
+                                           maxlength="50"
+                                           class="form-control" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label" for="tag-color-@tag.Id">Color</label>
+                                <InputText id="@($"tag-color-{tag.Id}")"
+                                           @bind-Value="editedColor"
+                                           type="color"
+                                           class="form-control form-control-color" />
+                            </div>
+                            <div class="col-md-3 d-flex gap-2">
+                                <button type="button" class="btn btn-primary" @onclick="() => SaveTagAsync(tag.Id)">Save</button>
+                                <button type="button" class="btn btn-outline-secondary" @onclick="CancelEditing">Cancel</button>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                            <span class="tag-color-badge" style="@TagColorStyle.BadgeStyle(tag.Color)">@tag.Name</span>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-outline-primary btn-sm" @onclick="() => StartEditing(tag)">Edit</button>
+                                <button type="button" class="btn btn-outline-danger btn-sm" @onclick="() => RequestDelete(tag.Id)">Delete</button>
+                            </div>
+                        </div>
+                    }
+
+                    @if (pendingDeleteTagId == tag.Id)
+                    {
+                        <div class="alert alert-warning mt-3 mb-0">
+                            This will delete the tag, but not its tasks. Tasks using it will remain and become untagged.
+                            <div class="d-flex gap-2 mt-2">
+                                <button type="button" class="btn btn-danger btn-sm" @onclick="ConfirmDeleteAsync">Delete tag</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="CancelDelete">Cancel</button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </section>
+        }
+    </div>
+}
+
+@code {
+    private List<TaskTag> tags = new();
+    private int? editingTagId;
+    private int? pendingDeleteTagId;
+    private string editedName = string.Empty;
+    private string editedColor = "#6258E8";
+    private string ErrorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTagsAsync();
+    }
+
+    private async Task LoadTagsAsync()
+    {
+        try
+        {
+            var userId = UserStateService.UserId;
+
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                ErrorMessage = "You must be logged in to manage tags.";
+                return;
+            }
+
+            tags = await TaskTagService.GetOrCreateDefaultsAsync(userId);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
+
+    private void StartEditing(TaskTag tag)
+    {
+        ErrorMessage = string.Empty;
+        pendingDeleteTagId = null;
+        editingTagId = tag.Id;
+        editedName = tag.Name;
+        editedColor = tag.Color;
+    }
+
+    private void CancelEditing()
+    {
+        editingTagId = null;
+    }
+
+    private async Task SaveTagAsync(int tagId)
+    {
+        ErrorMessage = string.Empty;
+
+        try
+        {
+            var userId = UserStateService.UserId;
+
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                ErrorMessage = "You must be logged in to manage tags.";
+                return;
+            }
+
+            await TaskTagService.UpdateAsync(userId, tagId, editedName, editedColor);
+            tags = await TaskTagService.GetForUserAsync(userId);
+            editingTagId = null;
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
+
+    private void RequestDelete(int tagId)
+    {
+        ErrorMessage = string.Empty;
+        editingTagId = null;
+        pendingDeleteTagId = tagId;
+    }
+
+    private void CancelDelete()
+    {
+        pendingDeleteTagId = null;
+    }
+
+    private async Task ConfirmDeleteAsync()
+    {
+        ErrorMessage = string.Empty;
+
+        if (pendingDeleteTagId is not int tagId)
+        {
+            return;
+        }
+
+        try
+        {
+            var userId = UserStateService.UserId;
+
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                ErrorMessage = "You must be logged in to manage tags.";
+                return;
+            }
+
+            await TaskTagService.DeleteAsync(userId, tagId);
+            tags = await TaskTagService.GetForUserAsync(userId);
+            pendingDeleteTagId = null;
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
+}

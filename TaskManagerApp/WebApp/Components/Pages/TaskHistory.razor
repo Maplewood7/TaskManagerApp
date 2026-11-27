@@ -1,5 +1,6 @@
 ﻿@page "/tasks/history"
 @inject TaskService TaskService
+@inject TaskTagService TaskTagService
 @inject UserStateService UserStateService
 
 <h3>Task History</h3>
@@ -14,15 +15,20 @@ else if (_tasks.Count == 0)
 }
 else
 {
-    <div class="row">
+    <div class="row task-history-grid">
         @foreach (var task in _tasks)
         {
-            <div class="col-md-4 mb-3">
-                <div class="card shadow-sm border-success">
-                    <div class="card-body">
+            var tag = _tags.FirstOrDefault(item => item.Id == task.TaskTagId);
+            <div class="col-md-4 mb-3 d-flex">
+                <div class="card task-history-card w-100" style="@(tag is null ? null : TagColorStyle.BadgeStyle(tag.Color))">
+                    <div class="card-body d-flex flex-column">
                         <h5 class="card-title">@task.Title</h5>
+                        @if (tag is not null)
+                        {
+                            <span class="tag-color-badge mb-2 align-self-start" style="@TagColorStyle.BadgeStyle(tag.Color)">@tag.Name</span>
+                        }
                         <p class="card-text">@task.Description</p>
-                        <p class="text-muted small">Completed!</p>
+                        <p class="text-muted small mt-auto">Completed!</p>
                     </div>
                 </div>
             </div>
@@ -32,6 +38,7 @@ else
 
 @code {
     private List<TaskItem> _tasks = new();
+    private List<TaskTag> _tags = new();
     private string? _errorMessage;
 
     protected override async Task OnInitializedAsync()
@@ -46,6 +53,7 @@ else
 
         try
         {
+            _tags = await TaskTagService.GetOrCreateDefaultsAsync(userId);
             _tasks = await TaskService.GetCompletedTasks(userId);
         }
         catch (Exception exception)

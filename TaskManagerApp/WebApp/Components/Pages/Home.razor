@@ -4,32 +4,86 @@
 
 <PageTitle>Task Manager</PageTitle>
 
-<h1>Welcome to Task Manager!</h1>
+<main class="home-page">
+    <section class="home-hero">
+        <div class="home-copy">
+            <span class="eyebrow">A calmer way to get things done</span>
+            <h1>Make room for <span>what matters.</span></h1>
+            <p class="home-description">
+                Keep your tasks organized, stay focused on your priorities, and make steady progress every day.
+            </p>
 
-<p>Your first step towards a more organized and productive life starts here.</p>
+            <div class="home-actions">
+                @if (UserStateService.GetUser() != null)
+                {
+                    <NavLink href="/tasks/ongoing" class="action-button action-button-primary">
+                        View your tasks
+                        <span aria-hidden="true">→</span>
+                    </NavLink>
 
-@if (UserStateService.GetUser() != null)
-{
-    <form method="post" action="/account/logout">
-        <AntiforgeryToken />
-        <button type="submit" class="btn btn-danger">Logout</button>
-    </form>
-}
-else
-{
-    <p>
-        <button type="button" class="btn btn-link p-0" @onclick="OpenLogin">Login</button> |
-        <NavLink href="/register">Register</NavLink>
-    </p>
-}
+                    <form method="post" action="/account/logout" data-enhance="false">
+                        <AntiforgeryToken />
+                        <button type="submit" class="action-button action-button-secondary">Log out</button>
+                    </form>
+                }
+                else
+                {
+                    <button type="button" class="action-button action-button-primary" @onclick="OpenLogin">
+                        Get started
+                        <span aria-hidden="true">→</span>
+                    </button>
+
+                    <NavLink href="/register" class="action-button action-button-secondary">
+                        Create an account
+                    </NavLink>
+                }
+            </div>
+
+            <p class="home-note">Simple tools for a more focused day.</p>
+        </div>
+
+        <div class="home-highlight" aria-label="Task planning benefits">
+            <div class="highlight-heading">
+                <span class="highlight-icon" aria-hidden="true">✓</span>
+                <div>
+                    <span class="highlight-overline">Your day, in focus</span>
+                    <h2>Progress starts with a plan.</h2>
+                </div>
+            </div>
+
+            <div class="highlight-list">
+                <div class="highlight-item">
+                    <span class="highlight-number">01</span>
+                    <div>
+                        <strong>Capture your tasks</strong>
+                        <p>Get everything out of your head and into one place.</p>
+                    </div>
+                </div>
+                <div class="highlight-item">
+                    <span class="highlight-number">02</span>
+                    <div>
+                        <strong>Focus on the next step</strong>
+                        <p>Keep your priorities visible as you work.</p>
+                    </div>
+                </div>
+                <div class="highlight-item">
+                    <span class="highlight-number">03</span>
+                    <div>
+                        <strong>Celebrate your progress</strong>
+                        <p>See what you’ve accomplished along the way.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="highlight-footer">
+                <span class="status-dot" aria-hidden="true"></span>
+                A little progress adds up.
+            </div>
+        </div>
+    </section>
+</main>
 
 @code {
-    private void Logout()
-    {
-        UserStateService.ClearUser();
-        NavManager.NavigateTo("/");
-    }
-
     private void OpenLogin() =>
         NavManager.NavigateTo("/login", forceLoad: true);
 }

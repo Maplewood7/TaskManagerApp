@@ -65,6 +65,13 @@ namespace Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Color")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(7)
+                        .HasColumnType("nvarchar(7)")
+                        .HasDefaultValue("#6258E8");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(50)

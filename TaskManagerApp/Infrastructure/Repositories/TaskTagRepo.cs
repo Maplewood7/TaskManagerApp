@@ -22,5 +22,17 @@ namespace Infrastructure.Repositories
             await _db.TaskTags.AddAsync(tag);
             await _db.SaveChangesAsync();
         }
+
+        public async Task UpdateAsync(TaskTag tag)
+        {
+            _db.TaskTags.Update(tag);
+            await _db.SaveChangesAsync();
+        }
+
+        public async Task DeleteAsync(TaskTag tag)
+        {
+            _db.TaskTags.Remove(tag);
+            await _db.SaveChangesAsync();
+        }
     }
 }

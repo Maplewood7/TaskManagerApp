@@ -23,7 +23,7 @@
             <div class="d-flex flex-wrap gap-2 mb-3">
                 @foreach (var tag in tags)
                 {
-                    <span class="badge bg-secondary">@tag.Name</span>
+                    <span class="tag-color-badge" style="@TagColorStyle.BadgeStyle(tag.Color)">@tag.Name</span>
                 }
             </div>
         }
@@ -38,6 +38,18 @@
                     @onclick="CreateTagAsync">
                 @(isCreatingTag ? "Adding..." : "Add tag")
             </button>
+        </div>
+
+        <div class="tag-color-picker-row">
+            <label for="new-tag-color">Tag color</label>
+            <InputText id="new-tag-color"
+                       @bind-Value="newTagColor"
+                       type="color"
+                       class="tag-color-input"
+                       aria-label="Choose tag color" />
+            <span class="tag-color-badge" style="@TagColorStyle.BadgeStyle(newTagColor)">
+        @(string.IsNullOrWhiteSpace(newTagName) ? "Tag preview" : newTagName)
+    </span>
         </div>
     </div>
 </section>
@@ -88,6 +100,7 @@
     private TaskModel taskModel = new();
     private List<TaskTag> tags = new();
     private string newTagName = string.Empty;
+    private string newTagColor = "#ffffff";
     private string ErrorMessage = string.Empty;
     private bool isSaving;
     private bool isCreatingTag;
@@ -133,7 +146,7 @@
                 return;
             }
 
-            var tag = await TaskTagService.CreateAsync(userId, newTagName);
+            var tag = await TaskTagService.CreateAsync(userId, newTagName, newTagColor);
             tags.Add(tag);
             tags = tags.OrderBy(item => item.Name).ToList();
             taskModel.TaskTagId = tag.Id;
